@@ -1,6 +1,8 @@
 package com.example.coolweather;
 
 import android.app.Fragment;
+import android.app.ProgressDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.view.LayoutInflater;
@@ -12,7 +14,9 @@ import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.example.coolweather.activity.WeatherActivity;
 import com.example.coolweather.db.City;
+import com.example.coolweather.db.County;
 import com.example.coolweather.db.Province;
 import com.example.coolweather.util.HttpUtil;
 import com.squareup.okhttp.Callback;
@@ -46,6 +50,10 @@ public class AreaFragment extends Fragment {
     private static final int LEVEL_COUNTY = 2;
     private int currentLevel = 0;
     private List<Province> mProvinceList;
+    private List<City> mCityList;
+    private City mSelectedCity;
+    private List<County> mListCounty;
+    private ProgressDialog mProgressDialog;
 
     @Nullable
     @Override
@@ -63,12 +71,24 @@ public class AreaFragment extends Fragment {
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
         mListview.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+
+            private County mCounty;
+
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 if (currentLevel == LEVEL_PROVINCE) {
                     mSelectedProvince = mProvinceList.get(position);
-                    currentLevel=LEVEL_CITY;
+                    currentLevel = LEVEL_CITY;
                     queryCities();
+                } else if (currentLevel == LEVEL_CITY) {
+                    mSelectedCity = mCityList.get(position);
+                    currentLevel = LEVEL_COUNTY;
+                    queryCounty();
+                } else if (currentLevel == LEVEL_COUNTY) {
+                    mCounty = mListCounty.get(position);
+                    Intent intent = new Intent(getActivity(), WeatherActivity.class);
+                    intent.putExtra("weather_id", mCounty.getWeatherId());
+                    startActivity(intent);
                 }
             }
         });
@@ -78,10 +98,30 @@ public class AreaFragment extends Fragment {
             public void onClick(View v) {
                 if (currentLevel == LEVEL_CITY) {
                     queryProvince();
+                } else if (currentLevel == LEVEL_COUNTY) {
+                    queryCities();
                 }
             }
         });
         queryProvince();
+    }
+
+    private void queryCounty() {
+        mTitleText.setText(mSelectedCity.getCityName());
+        mListCounty = DataSupport.where("cityid=?", mSelectedCity.getId() + "").find(County.class);
+        dataList.clear();
+        if (mListCounty.size() > 0) {
+            for (County county : mListCounty) {
+                dataList.add(county.getCountyName());
+
+            }
+            adapter.notifyDataSetChanged();
+        } else {
+            String address = "http://guolin.tech/api/china/" + mSelectedProvince.getProvinceCode() + "/" + mSelectedCity.getCityCode();
+            queryFromServer(address);
+        }
+
+
     }
 
     private void queryCities() {
@@ -89,10 +129,10 @@ public class AreaFragment extends Fragment {
         mBackBtn.setVisibility(View.VISIBLE);
         currentLevel = LEVEL_CITY;
 
-        List<City> cityList = DataSupport.where("provinceId = ?", mSelectedProvince.getId()+"").find(City.class);
-        if (cityList.size() > 0) {
+        mCityList = DataSupport.where("provinceId = ?", mSelectedProvince.getId() + "").find(City.class);
+        if (mCityList.size() > 0) {
             dataList.clear();
-            for (City city : cityList) {
+            for (City city : mCityList) {
                 dataList.add(city.getCityName());
             }
             adapter.notifyDataSetChanged();
@@ -122,6 +162,7 @@ public class AreaFragment extends Fragment {
     }
 
     private void queryFromServer(String address) {
+        showProgressDialog();
         HttpUtil.sendOkHttpRequest(address, new Callback() {
             @Override
             public void onFailure(Request request, IOException e) {
@@ -142,12 +183,12 @@ public class AreaFragment extends Fragment {
                             province.setProvinceCode(jsonObject.getInt("id"));
                             province.save();
                         }
-                       getActivity().runOnUiThread(new Runnable() {
-                           @Override
-                           public void run() {
-                               queryProvince();
-                           }
-                       });
+                        getActivity().runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                queryProvince();
+                            }
+                        });
                     } else if (currentLevel == LEVEL_CITY) {
                         for (int i = 0; i < array.length(); i++) {
                             JSONObject jsonObject = array.getJSONObject(i);
@@ -164,6 +205,21 @@ public class AreaFragment extends Fragment {
                             }
                         });
 
+                    } else if (currentLevel == LEVEL_COUNTY) {
+                        for (int i = 0; i < array.length(); i++) {
+                            JSONObject jsonObject = array.getJSONObject(i);
+                            County county = new County();
+                            county.setCityId(mSelectedCity.getId());
+                            county.setCountyName(jsonObject.getString("name"));
+                            county.setWeatherId(jsonObject.getString("weather_id"));
+                            county.save();
+                        }
+                        getActivity().runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                queryCounty();
+                            }
+                        });
                     }
 
                 } catch (JSONException e) {
@@ -172,11 +228,25 @@ public class AreaFragment extends Fragment {
                     e.printStackTrace();
 
 
+                } finally {
+                    closeProgressDialog();
                 }
 
             }
 
         });
+    }
+
+    private void closeProgressDialog() {
+        if (mProgressDialog != null) {
+            mProgressDialog.dismiss();
+        }
+    }
+
+    private void showProgressDialog() {
+        mProgressDialog = new ProgressDialog(getActivity());
+        mProgressDialog.setMessage("正在加载中");
+        mProgressDialog.show();
     }
 
 }

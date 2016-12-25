@@ -5,6 +5,7 @@ import android.app.ProgressDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
+import android.support.v4.widget.DrawerLayout;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -62,6 +63,7 @@ public class AreaFragment extends Fragment {
         mListview = (ListView) view.findViewById(R.id.list_view);
         mTitleText = (TextView) view.findViewById(R.id.title_text);
         mBackBtn = (Button) view.findViewById(R.id.back_button);
+
         adapter = new ArrayAdapter<String>(getActivity(), android.R.layout.simple_list_item_1, dataList);
         mListview.setAdapter(adapter);
         return view;
@@ -86,9 +88,19 @@ public class AreaFragment extends Fragment {
                     queryCounty();
                 } else if (currentLevel == LEVEL_COUNTY) {
                     mCounty = mListCounty.get(position);
-                    Intent intent = new Intent(getActivity(), WeatherActivity.class);
-                    intent.putExtra("weather_id", mCounty.getWeatherId());
-                    startActivity(intent);
+                    String weatherId = mCounty.getWeatherId();
+                    if (getActivity() instanceof MainActivity) {
+                        Intent intent = new Intent(getActivity(), WeatherActivity.class);
+                        intent.putExtra("weather_id", weatherId);
+                        startActivity(intent);
+                    } else if (getActivity() instanceof WeatherActivity) {
+                        WeatherActivity weatherActivity = (WeatherActivity) getActivity();
+                        weatherActivity.mDrawerLayout.closeDrawers();
+                        weatherActivity.mSrl_update_weather.setRefreshing(true);
+                        weatherActivity.requestWeather(weatherId);
+//                        weatherActivity.mSrl_update_weather.setRefreshing(false);
+
+                    }
                 }
             }
         });

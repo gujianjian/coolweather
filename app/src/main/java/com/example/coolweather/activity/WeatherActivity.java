@@ -16,11 +16,13 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
 import com.example.coolweather.R;
 import com.example.coolweather.gson.Forecast;
 import com.example.coolweather.gson.Weather;
+import com.example.coolweather.service.AutoUpdateService;
 import com.example.coolweather.util.HttpUtil;
 import com.google.gson.Gson;
 import com.squareup.okhttp.Callback;
@@ -195,40 +197,46 @@ public class WeatherActivity extends AppCompatActivity {
 
 
     public void showWeatherInfo(Weather weather) {
-        String update_time = weather.basic.update.update_time.split(" ")[1];
-        //城市名字和更新时间
-        mTitleText.setText(weather.basic.cityName);
-        mUpdateTimeText.setText(update_time);
-        //当前气温和天气概况
-        mDegreeText.setText(weather.now.tmp);
-        mWeatherInfoText.setText(weather.now.more.info);
+       if(weather!=null&&weather.status.equals("ok")){
+           String update_time = weather.basic.update.update_time.split(" ")[1];
+           //城市名字和更新时间
+           mTitleText.setText(weather.basic.cityName);
+           mUpdateTimeText.setText(update_time);
+           //当前气温和天气概况
+           mDegreeText.setText(weather.now.tmp);
+           mWeatherInfoText.setText(weather.now.more.info);
 
-        //清除所以几天天气情况
-        mForecastLayout.removeAllViews();
-        for (Forecast forecast : weather.forecastList) {
-            View view = LayoutInflater.from(WeatherActivity.this).inflate(R.layout.forecast_item, mForecastLayout, false);
-            TextView date_text = (TextView) view.findViewById(R.id.date_text);
-            TextView info_text = (TextView) view.findViewById(R.id.info_text);
-            TextView max_text = (TextView) view.findViewById(R.id.max_text);
-            TextView min_text = (TextView) view.findViewById(R.id.min_text);
-            date_text.setText(forecast.date);
-            info_text.setText(forecast.more.info);
-            max_text.setText(forecast.tmp.max);
-            min_text.setText(forecast.tmp.min);
+           //清除所以几天天气情况
+           mForecastLayout.removeAllViews();
+           for (Forecast forecast : weather.forecastList) {
+               View view = LayoutInflater.from(WeatherActivity.this).inflate(R.layout.forecast_item, mForecastLayout, false);
+               TextView date_text = (TextView) view.findViewById(R.id.date_text);
+               TextView info_text = (TextView) view.findViewById(R.id.info_text);
+               TextView max_text = (TextView) view.findViewById(R.id.max_text);
+               TextView min_text = (TextView) view.findViewById(R.id.min_text);
+               date_text.setText(forecast.date);
+               info_text.setText(forecast.more.info);
+               max_text.setText(forecast.tmp.max);
+               min_text.setText(forecast.tmp.min);
 
-            mForecastLayout.addView(view);
-        }
+               mForecastLayout.addView(view);
+           }
 
-        //aqi指数和pm25指数
-        if (weather.aqi != null) {
-            mAqiText.setText(weather.aqi.city.aqi);
-            mPm25.setText(weather.aqi.city.pm25);
-        }
+           //aqi指数和pm25指数
+           if (weather.aqi != null) {
+               mAqiText.setText(weather.aqi.city.aqi);
+               mPm25.setText(weather.aqi.city.pm25);
+           }
 
-        //舒适度,运动指数和洗车指数
-        mSportText.setText("运动指数:" + weather.suggestion.support.info);
-        mCarWash.setText("洗车指数:" + weather.suggestion.washCar.info);
-        mComfort.setText("舒适度:" + weather.suggestion.comf.info);
+           //舒适度,运动指数和洗车指数
+           mSportText.setText("运动指数:" + weather.suggestion.support.info);
+           mCarWash.setText("洗车指数:" + weather.suggestion.washCar.info);
+           mComfort.setText("舒适度:" + weather.suggestion.comf.info);
+
+           startService(new Intent(this, AutoUpdateService.class));
+       }else{
+           Toast.makeText(this,"信息获取失败",Toast.LENGTH_SHORT).show();
+       }
     }
 
 

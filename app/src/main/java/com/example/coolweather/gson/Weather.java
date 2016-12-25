@@ -15,4 +15,5 @@ public class Weather {
     public Basic basic;
     @SerializedName("daily_forecast")
     public List<Forecast> forecastList;
+    public String status;
 }
